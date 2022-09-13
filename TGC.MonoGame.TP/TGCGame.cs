@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using BepuPhysics.Collidables;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -43,6 +45,11 @@ namespace TGC.MonoGame.TP
         private Matrix View { get; set; }
         private Matrix Projection { get; set; }
 
+        private FreeCamera Camera { get; set; }
+        private Texture2D albedo, ao, metalness, roughness, normals;
+        private string TexturePath;
+        private Matrix SphereWorld;
+        
         /// <summary>
         ///     Se llama una sola vez, al principio cuando se ejecuta el ejemplo.
         ///     Escribir aqui el codigo de inicializacion: el procesamiento que podemos pre calcular para nuestro juego.
@@ -59,11 +66,21 @@ namespace TGC.MonoGame.TP
             GraphicsDevice.RasterizerState = rasterizerState;
             // Seria hasta aca.
 
+            // Configuro el tamaño de la pantalla
+            Graphics.PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width - 100;
+            Graphics.PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height - 100;
+            Graphics.ApplyChanges();
+
+            var size = GraphicsDevice.Viewport.Bounds.Size;
+            size.X /= 2;
+            size.Y /= 2;
+            Camera = new FreeCamera(GraphicsDevice.Viewport.AspectRatio, new Vector3(0, 40, 200), size);
+
             // Configuramos nuestras matrices de la escena.
             World = Matrix.Identity;
-            View = Matrix.CreateLookAt(Vector3.UnitZ * 150, Vector3.Zero, Vector3.Up);
+            View = Matrix.CreateLookAt(Vector3.UnitZ * 3000, Vector3.Zero, Vector3.Up);
             Projection =
-                Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, GraphicsDevice.Viewport.AspectRatio, 1, 250);
+                Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, GraphicsDevice.Viewport.AspectRatio, 5, 5000);
 
             base.Initialize();
         }
@@ -79,18 +96,28 @@ namespace TGC.MonoGame.TP
             SpriteBatch = new SpriteBatch(GraphicsDevice);
 
             // Cargo el modelo del logo.
-            Model = Content.Load<Model>(ContentFolder3D + "tgc-logo/tgc-logo");
+            Model = Content.Load<Model>(ContentFolder3D + "geometries/sphere");
 
             // Cargo un efecto basico propio declarado en el Content pipeline.
             // En el juego no pueden usar BasicEffect de MG, deben usar siempre efectos propios.
-            Effect = Content.Load<Effect>(ContentFolderEffects + "BasicShader");
+            Effect = Content.Load<Effect>(ContentFolderEffects + "PBR");
+            SphereWorld = Matrix.CreateScale(30f) * Matrix.CreateRotationX(MathF.PI * 0.5f);
+            TexturePath = ContentFolderTextures + "pbr/harsh-metal/";
 
-            // Asigno el efecto que cargue a cada parte del mesh.
-            // Un modelo puede tener mas de 1 mesh internamente.
-            foreach (var mesh in Model.Meshes)
-                // Un mesh puede tener mas de 1 mesh part (cada 1 puede tener su propio efecto).
-            foreach (var meshPart in mesh.MeshParts)
-                meshPart.Effect = Effect;
+            normals = Content.Load<Texture2D>(TexturePath + "normal");
+            ao = Content.Load<Texture2D>(TexturePath + "ao");
+            metalness = Content.Load<Texture2D>(TexturePath + "metalness");
+            roughness = Content.Load<Texture2D>(TexturePath + "roughness");
+            albedo = Content.Load<Texture2D>(TexturePath + "color");
+
+            Effect.Parameters["albedoTexture"]?.SetValue(albedo);
+            Effect.Parameters["normalTexture"]?.SetValue(normals);
+            Effect.Parameters["metallicTexture"]?.SetValue(metalness);
+            Effect.Parameters["roughnessTexture"]?.SetValue(roughness);
+            Effect.Parameters["aoTexture"]?.SetValue(ao);
+
+            // Apply the effect to all mesh parts
+            Model.Meshes.FirstOrDefault().MeshParts.FirstOrDefault().Effect = Effect;
 
             base.LoadContent();
         }
@@ -109,8 +136,9 @@ namespace TGC.MonoGame.TP
                 //Salgo del juego.
                 Exit();
 
-            // Basado en el tiempo que paso se va generando una rotacion.
-            Rotation += Convert.ToSingle(gameTime.ElapsedGameTime.TotalSeconds);
+            Camera.Update(gameTime);
+
+            Effect.Parameters["eyePosition"].SetValue(Camera.Position);
 
             base.Update(gameTime);
         }
@@ -125,17 +153,15 @@ namespace TGC.MonoGame.TP
             GraphicsDevice.Clear(Color.Black);
 
             // Para dibujar le modelo necesitamos pasarle informacion que el efecto esta esperando.
-            Effect.Parameters["View"].SetValue(View);
-            Effect.Parameters["Projection"].SetValue(Projection);
-            Effect.Parameters["DiffuseColor"].SetValue(Color.DarkBlue.ToVector3());
-            var rotationMatrix = Matrix.CreateRotationY(Rotation);
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            foreach (var mesh in Model.Meshes)
-            {
-                World = mesh.ParentBone.Transform * rotationMatrix;
-                Effect.Parameters["World"].SetValue(World);
-                mesh.Draw();
-            }
+            var worldView = SphereWorld * Camera.View;
+            Effect.Parameters["matWorld"].SetValue(SphereWorld);
+            Effect.Parameters["matWorldViewProj"].SetValue(worldView * Camera.Projection);
+            Effect.Parameters["matInverseTransposeWorld"].SetValue(Matrix.Transpose(Matrix.Invert(SphereWorld)));
+
+            Model.Meshes.FirstOrDefault().Draw();
+
         }
 
         /// <summary>
