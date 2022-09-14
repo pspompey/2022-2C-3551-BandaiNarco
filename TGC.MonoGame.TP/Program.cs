@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TGC.MonoGame.TP
+namespace BandaiNarco
 {
     public static class Program
     {

@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
-namespace TGC.MonoGame.TP
+namespace BandaiNarco
 {
     /// <summary>
     ///     Esta es la clase principal  del juego.
