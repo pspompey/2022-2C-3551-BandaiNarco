@@ -14,7 +14,7 @@ namespace BandaiNarco
     /// </summary>
     public class TGCGame : Game
     {
-        public const string ContentFolder3D = "Models/";
+        public const string ContentFolder3D = "3D/";
         public const string ContentFolderEffects = "Effects/";
         public const string ContentFolderMusic = "Music/";
         public const string ContentFolderSounds = "Sounds/";
@@ -46,8 +46,7 @@ namespace BandaiNarco
         private Matrix Projection { get; set; }
 
         private FreeCamera Camera { get; set; }
-        private Texture2D albedo, ao, metalness, roughness, normals;
-        private string TexturePath;
+        private Texture2D normals;
         private Matrix SphereWorld;
         
         /// <summary>
@@ -100,24 +99,11 @@ namespace BandaiNarco
 
             // Cargo un efecto basico propio declarado en el Content pipeline.
             // En el juego no pueden usar BasicEffect de MG, deben usar siempre efectos propios.
-            Effect = Content.Load<Effect>(ContentFolderEffects + "PBR");
+            Effect = Content.Load<Effect>(ContentFolderEffects + "BasicShader");
             SphereWorld = Matrix.CreateScale(30f) * Matrix.CreateRotationX(MathF.PI * 0.5f);
-            TexturePath = ContentFolderTextures + "pbr/harsh-metal/";
 
-            normals = Content.Load<Texture2D>(TexturePath + "normal");
-            ao = Content.Load<Texture2D>(TexturePath + "ao");
-            metalness = Content.Load<Texture2D>(TexturePath + "metalness");
-            roughness = Content.Load<Texture2D>(TexturePath + "roughness");
-            albedo = Content.Load<Texture2D>(TexturePath + "color");
-
-            Effect.Parameters["albedoTexture"]?.SetValue(albedo);
-            Effect.Parameters["normalTexture"]?.SetValue(normals);
-            Effect.Parameters["metallicTexture"]?.SetValue(metalness);
-            Effect.Parameters["roughnessTexture"]?.SetValue(roughness);
-            Effect.Parameters["aoTexture"]?.SetValue(ao);
-
-            // Apply the effect to all mesh parts
-            Model.Meshes.FirstOrDefault().MeshParts.FirstOrDefault().Effect = Effect;
+            normals = Content.Load<Texture2D>(ContentFolderTextures + "goma");
+            Effect.Parameters["ModelTexture"]?.SetValue(normals);
 
             base.LoadContent();
         }
@@ -138,8 +124,6 @@ namespace BandaiNarco
 
             Camera.Update(gameTime);
 
-            Effect.Parameters["eyePosition"].SetValue(Camera.Position);
-
             base.Update(gameTime);
         }
 
@@ -155,12 +139,21 @@ namespace BandaiNarco
             // Para dibujar le modelo necesitamos pasarle informacion que el efecto esta esperando.
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
 
-            var worldView = SphereWorld * Camera.View;
-            Effect.Parameters["matWorld"].SetValue(SphereWorld);
-            Effect.Parameters["matWorldViewProj"].SetValue(worldView * Camera.Projection);
-            Effect.Parameters["matInverseTransposeWorld"].SetValue(Matrix.Transpose(Matrix.Invert(SphereWorld)));
+            var mesh = Model.Meshes.FirstOrDefault();
 
-            Model.Meshes.FirstOrDefault().Draw();
+            if (mesh != null)
+            {
+                foreach (var part in mesh.MeshParts)
+                {
+                    part.Effect = Effect;
+                    Effect.Parameters["World"].SetValue(mesh.ParentBone.Transform);
+                    Effect.Parameters["View"].SetValue(Camera.View);
+                    Effect.Parameters["Projection"].SetValue(Camera.Projection);
+                    Effect.Parameters["ModelTexture"].SetValue(normals);
+                }
+
+                mesh.Draw();
+            }
 
         }
 
