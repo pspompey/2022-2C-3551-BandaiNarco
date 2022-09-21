@@ -1,6 +1,6 @@
 using Microsoft.Xna.Framework;
 
-namespace BandaiNarco
+namespace TGC.BandaiNarco.TP.Cameras
 {
     /// <summary>
     ///     The minimum behavior that a camera should have.

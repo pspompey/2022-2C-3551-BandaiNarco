@@ -4,6 +4,7 @@ using BepuPhysics.Collidables;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using TGC.BandaiNarco.TP.Cameras;
 
 namespace BandaiNarco
 {
@@ -45,10 +46,21 @@ namespace BandaiNarco
         private Matrix View { get; set; }
         private Matrix Projection { get; set; }
 
-        private FreeCamera Camera { get; set; }
-        private Texture2D normals;
+        private TargetCamera Camera { get; set; }
+        private Texture2D GumTexture;
         private Matrix SphereWorld;
-        
+      
+        /// <summary>
+        /// A quad to draw the floor and transparent geometry
+        /// </summary>
+        private QuadPrimitive Quad { get; set; }
+
+        /// <summary>
+        /// A Tiling Texture Effect to draw the floor
+        /// </summary>
+        private Effect TilingFloorEffect { get; set; }
+        private Matrix FloorWorld { get; set; }
+
         /// <summary>
         ///     Se llama una sola vez, al principio cuando se ejecuta el ejemplo.
         ///     Escribir aqui el codigo de inicializacion: el procesamiento que podemos pre calcular para nuestro juego.
@@ -73,13 +85,17 @@ namespace BandaiNarco
             var size = GraphicsDevice.Viewport.Bounds.Size;
             size.X /= 2;
             size.Y /= 2;
-            Camera = new FreeCamera(GraphicsDevice.Viewport.AspectRatio, new Vector3(0, 40, 200), size);
+
+            // Create the Camera
+            Camera = new TargetCamera(GraphicsDevice.Viewport.AspectRatio, Vector3.One * 100f, Vector3.Zero);
 
             // Configuramos nuestras matrices de la escena.
             World = Matrix.Identity;
             View = Matrix.CreateLookAt(Vector3.UnitZ * 3000, Vector3.Zero, Vector3.Up);
             Projection =
                 Matrix.CreatePerspectiveFieldOfView(MathHelper.PiOver4, GraphicsDevice.Viewport.AspectRatio, 5, 5000);
+            
+            Quad = new QuadPrimitive(GraphicsDevice, Content);
 
             base.Initialize();
         }
@@ -100,10 +116,20 @@ namespace BandaiNarco
             // Cargo un efecto basico propio declarado en el Content pipeline.
             // En el juego no pueden usar BasicEffect de MG, deben usar siempre efectos propios.
             Effect = Content.Load<Effect>(ContentFolderEffects + "BasicShader");
-            SphereWorld = Matrix.CreateScale(30f) * Matrix.CreateRotationX(MathF.PI * 0.5f);
+            SphereWorld = Matrix.CreateScale(20f) * Matrix.CreateRotationX(MathF.PI * 0.5f);
+            FloorWorld = Matrix.CreateScale(200f, 0.001f, 250f) * Matrix.CreateTranslation(0, SphereWorld.Backward.Y, 0);
 
-            normals = Content.Load<Texture2D>(ContentFolderTextures + "goma");
-            Effect.Parameters["ModelTexture"]?.SetValue(normals);
+            GumTexture = Content.Load<Texture2D>(ContentFolderTextures + "goma");
+            Effect.Parameters["ModelTexture"]?.SetValue(GumTexture);
+
+            // Load the texture for the floor
+            var floorTexture = Content.Load<Texture2D>(ContentFolderTextures + "floor/tierra");
+
+            // Load the floor effect and set its parameters
+            TilingFloorEffect = Content.Load<Effect>(ContentFolderEffects + "TextureTiling");
+
+            TilingFloorEffect.Parameters["Texture"].SetValue(floorTexture);
+            TilingFloorEffect.Parameters["Tiling"].SetValue(Vector2.One * 10f);
 
             base.LoadContent();
         }
@@ -116,6 +142,7 @@ namespace BandaiNarco
         protected override void Update(GameTime gameTime)
         {
             // Aca deberiamos poner toda la logica de actualizacion del juego.
+            var time = Convert.ToSingle(gameTime.ElapsedGameTime.TotalSeconds);
 
             // Capturar Input teclado
             if (Keyboard.GetState().IsKeyDown(Keys.Escape))
@@ -146,15 +173,20 @@ namespace BandaiNarco
                 foreach (var part in mesh.MeshParts)
                 {
                     part.Effect = Effect;
-                    Effect.Parameters["World"].SetValue(mesh.ParentBone.Transform);
-                    Effect.Parameters["View"].SetValue(Camera.View);
-                    Effect.Parameters["Projection"].SetValue(Camera.Projection);
-                    Effect.Parameters["ModelTexture"].SetValue(normals);
                 }
-
                 mesh.Draw();
             }
 
+            Effect.Parameters["World"].SetValue(SphereWorld);
+            Effect.Parameters["View"].SetValue(Camera.View);
+            Effect.Parameters["Projection"].SetValue(Camera.Projection);
+            Effect.Parameters["ModelTexture"].SetValue(GumTexture);
+
+            var viewProjection = Camera.View * Camera.Projection;
+
+            // Draw the floor
+            TilingFloorEffect.Parameters["WorldViewProjection"].SetValue(FloorWorld * viewProjection);
+            Quad.Draw(TilingFloorEffect);
         }
 
         /// <summary>

@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 
-namespace BandaiNarco
+namespace TGC.BandaiNarco.TP.Cameras
 {
     internal class FreeCamera : Camera
     {
