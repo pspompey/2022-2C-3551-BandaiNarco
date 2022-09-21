@@ -11,18 +11,6 @@
 		<ApplicationIcon>Icon.ico</ApplicationIcon>
 	</PropertyGroup>
 	<ItemGroup>
-		<Compile Remove="Content\pbr\**" />
-		<Compile Remove="Content\skyboxes\**" />
-		<EmbeddedResource Remove="Content\pbr\**" />
-		<EmbeddedResource Remove="Content\skyboxes\**" />
-		<None Remove="Content\pbr\**" />
-		<None Remove="Content\skyboxes\**" />
-	</ItemGroup>
-	<ItemGroup>
-		<None Remove="Icon.ico" />
-		<None Remove="Icon.bmp" />
-	</ItemGroup>
-	<ItemGroup>
 		<EmbeddedResource Include="Icon.ico" />
 		<EmbeddedResource Include="Icon.bmp" />
 	</ItemGroup>
